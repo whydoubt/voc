@@ -265,3 +265,18 @@ class MethodTests(TranspileTestCase):
             except TypeError as err:
                 print(err)
             """)
+
+    def test_method_no_self_arg(self):
+        self.assertCodeExecution("""
+            class TestObj:
+                def myfunc():
+                    print(0)
+
+            obj = TestObj()
+            TestObj.myfunc()
+
+            try:
+                obj.myfunc()
+            except TypeError as err:
+                print(err)
+            """)

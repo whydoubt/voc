@@ -767,31 +767,35 @@ class Method(Function):
         # object should already exist.
         binding = Accumulator(local_vars if local_vars is not None
                               else self.local_vars)
+        static = False
 
-        binding.add_opcodes(
-            # DEBUG("BINDING FOR " + self.name + self.signature),
-            # DEBUG("BOUND AS " + self.name + self.bound_signature),
-            # JavaOpcodes.ALOAD_0(),
-            # DEBUG_value("BINDING SELF IN"),
+        if len(self.parameters) > 0:
+            binding.add_opcodes(
+                # DEBUG("BINDING FOR " + self.name + self.signature),
+                # DEBUG("BOUND AS " + self.name + self.bound_signature),
+                # JavaOpcodes.ALOAD_0(),
+                # DEBUG_value("BINDING SELF IN"),
 
-            JavaOpcodes.ALOAD_0(),
-            python.Type.to_python(),  # 3
+                JavaOpcodes.ALOAD_0(),
+                python.Type.to_python(),  # 3
 
-            # DEBUG_value("BINDING SELF OUT", dup=True),
-        )
+                # DEBUG_value("BINDING SELF OUT", dup=True),
+            )
 
-        # Then extract each argument, converting to Python types as required.
-        for i, param in enumerate(self.parameters[1:]):
-            if param['annotation'] is None:
-                raise Exception("Parameters can't be void")
-            else:
-                to_python(binding, param['annotation'], param['name'])
+            # Then extract each argument, converting to Python types as required.
+            for i, param in enumerate(self.parameters[1:]):
+                if param['annotation'] is None:
+                    raise Exception("Parameters can't be void")
+                else:
+                    to_python(binding, param['annotation'], param['name'])
+                # binding.add_opcodes(
+                #     DEBUG("INPUT %s TRANSFORMED" % (i)),
+                # )
             # binding.add_opcodes(
-            #     DEBUG("INPUT %s TRANSFORMED" % (i)),
+            #     DEBUG("INPUTS TRANSFORMED"),
             # )
-        # binding.add_opcodes(
-        #     DEBUG("INPUTS TRANSFORMED"),
-        # )
+        else:
+            static = True
 
         # Then call the method, and process the return type.
         binding.add_opcodes(
@@ -809,6 +813,7 @@ class Method(Function):
             JavaMethod(
                 self.java_name,
                 self.bound_signature,
+                static=static,
                 attributes=[
                     JavaCode(
                         max_stack=len(self.parameters) + 5,
