@@ -237,3 +237,31 @@ class MethodTests(TranspileTestCase):
             except AttributeError as err:
                 print(err)
         """, run_in_function=False)
+
+    def test_method_too_few_positional_args(self):
+        self.assertCodeExecution("""
+            class TestObj:
+                def myfunc(self, value):
+                    pass
+
+            obj = TestObj()
+
+            try:
+                obj.myfunc()
+            except TypeError as err:
+                print(err)
+            """)
+
+    def test_method_too_many_positional_args(self):
+        self.assertCodeExecution("""
+            class TestObj:
+                def myfunc(self, value):
+                    pass
+
+            obj = TestObj()
+
+            try:
+                obj.myfunc(1, 2)
+            except TypeError as err:
+                print(err)
+            """)

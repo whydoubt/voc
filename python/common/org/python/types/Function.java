@@ -203,8 +203,8 @@ public class Function extends org.python.types.Object implements org.python.Call
                     }
                 }
 
-                throw new org.python.exceptions.TypeError(this.name + "() missing " + missingArgs.size() + " required positional "
-                        + (missingArgs.size() == 1 ? "argument" : "arguments") + ": " + sb.toString());
+                throw new org.python.exceptions.TypeError(this.name + "() missing " + missingArgs.size()
+                        + " required positional argument" + (missingArgs.size() == 1 ? ": " : "s: ") + sb.toString());
             }
         }
     }
@@ -227,11 +227,11 @@ public class Function extends org.python.types.Object implements org.python.Call
         java.util.List<org.python.Object> varnames = this.co_varnames;
 
         int first_arg = 0;
-        int has_varargs = 0;
-        int has_varkwargs = 0;
+        boolean has_varargs = false;
+        boolean has_varkwargs = false;
         // System.out.println("Instance = " + instance);
         // System.out.println("method:" + method);
-        // System.out.println("args:" + args.length);
+        // System.out.println("args:" + ((args == null) ? null : args.length));
         // System.out.println("kwargs:" + kwargs);
         // System.out.println("argcount = " + argcount);
         // System.out.println("kwonlyargcount = " + kwonlyargcount);
@@ -241,20 +241,24 @@ public class Function extends org.python.types.Object implements org.python.Call
         if ((flags & CO_VARARGS) != 0) {
             // System.out.println("HAS VARARGS");
             n_args += 1;
-            has_varargs = 1;
+            has_varargs = true;
         }
         if ((flags & CO_VARKEYWORDS) != 0) {
             // System.out.println("HAS VARKEYWORDS");
             n_args += 1;
-            has_varkwargs = 1;
+            has_varkwargs = true;
         }
 
         int required_args = argcount - this.default_args.size();
         // System.out.println("nargs = " + n_args);
         // System.out.println("first default = " + required_args);
 
-        if (0 == has_varargs && args != null && n_provided_args > n_args) {
-            throwUnexpectedPositionalArgumentsError(n_args, n_provided_args);
+        if (!has_varargs) {
+            int n_instance = java.lang.reflect.Modifier.isStatic(method.getModifiers()) ? 0 : 1;
+            int n_instance_passed = (instance == null) ? 0 : 1;
+            if (n_args + n_instance < n_provided_args + n_instance_passed) {
+                throwUnexpectedPositionalArgumentsError(n_args + n_instance, n_provided_args + n_instance_passed);
+            }
         }
 
         // If there are genuinely *no* arguments - not even self - return null;
@@ -306,36 +310,33 @@ public class Function extends org.python.types.Object implements org.python.Call
         }
 
         // Create a tuple for the varargs
-        org.python.types.Tuple tuple = null;
-        if ((flags & CO_VARARGS) != 0) {
+        if (has_varargs) {
             // System.out.println("Handle varargs");
-            // Construct Python tuple object
-
             if (args != null) {
-                tuple = new org.python.types.Tuple(java.util.Arrays.asList(java.util.Arrays.copyOfRange(args, argcount - first_arg, n_provided_args)));
+                adjusted[argcount] = new org.python.types.Tuple(java.util.Arrays.asList(
+                                        java.util.Arrays.copyOfRange(args, argcount - first_arg, n_provided_args)));
             } else {
                 // No varargs provided
-                tuple = new org.python.types.Tuple();
+                adjusted[argcount] = new org.python.types.Tuple();
             }
-
-            adjusted[argcount] = tuple;
-            // System.out.println("   dARG " + argcount + ": " + tuple);
+            // System.out.println("   dARG " + argcount + ": " + adjusted[argcount]);
+            argcount += 1;
         }
 
         // Populate the kwonly args
         for (int i = 0; i < kwonlyargcount; i++) {
-            java.lang.String varname = ((org.python.types.Str) varnames.get(argcount + has_varargs + i)).value;
-            // System.out.println("   e" + (argcount + has_varargs + i) + " " + varname);
+            java.lang.String varname = ((org.python.types.Str) varnames.get(argcount + i)).value;
+            // System.out.println("   e" + (argcount + i) + " " + varname);
             org.python.Object value = (kwargs == null) ? null : kwargs.remove(varname);
             if (value == null) {
                 value = this.default_kwargs.get(varname);
             }
-            adjusted[argcount + has_varargs + i] = value;
-            // System.out.println("   eARG " + (argcount + has_varargs + i) + ": " + value);
+            adjusted[argcount + i] = value;
+            // System.out.println("   eARG " + (argcount + i) + ": " + value);
         }
 
         // Add remaining kwargs to kwargs argument if we have one.
-        if ((flags & CO_VARKEYWORDS) != 0) {
+        if (has_varkwargs) {
             // System.out.println("Handle varkwargs = " + kwargs);
             org.python.types.Dict kwargDict = new org.python.types.Dict();
             if (kwargs != null) {
@@ -396,11 +397,10 @@ public class Function extends org.python.types.Object implements org.python.Call
                 return org.python.types.Type.toPython(this.method.invoke(null, adjusted_args));
             } else if (this.closure != null) {
                 return org.python.types.Type.toPython(this.method.invoke(this.closure, adjusted_args));
-            } else {
-                if (instance == null) {
-                    throw new org.python.exceptions.TypeError("expected 1 arguments, got 0");
-                }
+            } else if (instance != null) {
                 return org.python.types.Type.toPython(this.method.invoke(instance, adjusted_args));
+            } else {
+                throw new org.python.exceptions.TypeError("expected 1 arguments, got 0");
             }
         } catch (java.lang.IllegalAccessException iae) {
             throw new org.python.exceptions.RuntimeError(iae.toString());
